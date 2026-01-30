@@ -1,0 +1,6 @@
+robot_ip: "192.168.1.XXX"   # set per station
+is_radian: true             # recommend radians everywhere in code
+default_speed: 100          # mm/s for TCP moves (if you use set_position)
+default_joint_speed: 0.6    # rad/s-ish equivalent depending on API usage
+collision_sensitivity: 3    # 1-5 often used; tune per lab
+self_collision: true

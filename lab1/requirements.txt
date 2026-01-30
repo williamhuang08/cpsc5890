@@ -1,0 +1,2 @@
+xarm-python-sdk
+numpy
