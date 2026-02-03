@@ -54,25 +54,25 @@ def train_bc_on_arrays(
     """
 
     # TODO: compute normalization stats on training arrays
-    X_mean, X_std = None, None  # TODO
-    Y_mean, Y_std = None, None  # TODO
+    X_mean, X_std = compute_norm_stats(X_raw_train)
+    Y_mean, Y_std = compute_norm_stats(Y_raw_train)
 
     # TODO: normalize (X_raw_train, X_raw_test, Y_raw_train, Y_raw_test)
-    Xtr = None  # TODO
-    Xte = None  # TODO
-    Ytr = None  # TODO
-    Yte = None  # TODO
+    Xtr = normalize(X_raw_train, X_mean, X_std)
+    Xte = normalize(X_raw_test, X_mean, X_std)
+    Ytr = normalize(Y_raw_train, Y_mean, Y_std)
+    Yte = normalize(Y_raw_test, Y_mean, Y_std)
 
     # TODO: wrap in datasets + loaders
-    train_ds = None  # TODO
-    test_ds = None   # TODO
-    train_loader = None  # TODO
-    test_loader = None   # TODO
+    train_ds = TensorDataset(Xtr, Ytr)
+    test_ds = TensorDataset(Xte, Yte)
+    train_loader = DataLoader(Xtr, Ytr)
+    test_loader = DataLoader(Xte, Yte)
 
     # TODO: create model, optimizer, loss
-    model = None      # TODO
-    optimizer = None  # TODO
-    loss_fn = None    # TODO
+    model = BCPolicy(obs_dim=Xtr.shape[1], act_dim=Ytr.shape[1]).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    loss_fn = nn.MSELoss()
 
     # TODO: training loop
     # for ep in range(1, epochs+1):
@@ -80,8 +80,17 @@ def train_bc_on_arrays(
     #   for x,y in train_loader:
     #     ...
     #   optionally print evaluate() every few epochs
-    raise NotImplementedError
+    for ep in range(1, epochs+1):
+        model.train()
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
 
+            pred = model(x)
+            loss = loss_fn(pred, y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
     return model, (X_mean, X_std, Y_mean, Y_std)
 
 
