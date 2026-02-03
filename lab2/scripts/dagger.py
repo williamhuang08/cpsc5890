@@ -148,27 +148,27 @@ def rollout_dagger_collect(
             # q = get_joint_angles(arm)
             # g = float(get_gripper_position(arm))
             # state = np.concatenate([q, [g]]).astype(np.float32)
-            q = None       # TODO
-            g = None       # TODO
-            state = None   # TODO
+            q = get_joint_angles(arm)       # TODO
+            g = float(get_gripper_position(arm))       # TODO
+            state = np.concatenate([q, [g]]).astype(np.float32)  # TODO
 
-            # TODO: obs_buffer.append(state)
-            # if len(obs_buffer) < obs_horizon: continue
-            raise NotImplementedError
+            # TODO: 
+            obs_buffer.append(state)
+            if len(obs_buffer) < obs_horizon: continue
+        
 
             # TODO: obs_stack = np.concatenate(list(obs_buffer), axis=0).astype(np.float32)
-            obs_stack = None  # TODO
+            obs_stack = np.concatenate(list(obs_buffer), axis=0).astype(np.float)  # TODO
 
             # --- expert label (DAgger) ---
             # IMPORTANT: label with expert for visited states
             # NOTE: policy(arm) returns (a_exp, done) in your code
             # TODO: call expert policy
-            a_exp, done = None, None  # TODO
+            a_exp, done = policy(arm)  # TODO
 
             # TODO: store training pair
-            # X_new.append(obs_stack)
-            # Y_new.append(a_exp)
-            raise NotImplementedError
+            X_new.append(obs_stack)
+            Y_new.append(a_exp)
 
             # --- mixture execution ---
             # TODO:
@@ -183,7 +183,14 @@ def rollout_dagger_collect(
             #
             # Then choose:
             #   action_exec = a_exp if rng < beta else a_learned
-            raise NotImplementedError
+            x = (obs_stack - X_mean) / X_std
+            x = torch.tensor(x, dtype=torch.float32, device=device)
+            with torch.no_grad(): a_norm = model(x).cpu().numpy()
+            a_learned = a_norm * Y_std + Y_mean
+
+            rng = np.random.default_rng()
+            action_exec = a_exp if rng.random() < beta else a_learned
+
 
             # --- execute (skeleton kept, students fill action_exec + dq) ---
             dq = action_exec[:7]
