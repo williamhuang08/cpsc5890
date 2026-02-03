@@ -252,13 +252,13 @@ def main():
         print(f"Train samples: {len(Xtr0)} | Test samples: {len(Xte0)}")
 
         # TODO: train initial BC on demonstrations using train_bc_on_arrays
-        model, (X_mean, X_std, Y_mean, Y_std) = None, (None, None, None, None)  # TODO
-        raise NotImplementedError
+        model, (X_mean, X_std, Y_mean, Y_std) = train_bc_on_arrays(Xtr0, Ytr0, Xte0, Yte0) # TODO
 
         # TODO (optional): save model and normalization
         # torch.save(...)
         # np.savez(...)
-        raise NotImplementedError
+        torch.save(model.state_dict(), 'asset/dagger_policy.pt')
+        np.savez('asset/dagger_norm.npz', X_mean=X_mean, X_std=X_std, Y_mean=Y_mean, Y_std=Y_std)
 
     elif args.mode == "dagger":
         # Aggregated dataset starts with original demos
@@ -295,6 +295,7 @@ def main():
                 # - aggregate X_new/Y_new into Xtr_agg/Ytr_agg
                 # - retrain using train_bc_on_arrays on aggregated dataset
                 # - save artifacts each iteration (optional)
+                rollout_dagger_collect(arm, model, )
                 raise NotImplementedError
 
         finally:
