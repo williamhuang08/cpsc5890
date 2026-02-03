@@ -93,9 +93,21 @@ Record the EEF state trajectory using the provided visualization code.
 
 ### Reflection Questions
 * How closely does the BC model reproduce the original demonstrations?
+
+*Answer*: We did not have time to fully replicate the original demonstrations. The model we trained was able to move the arm from the start state to a later point in the trajectory, but then the robot end-effector collides with the table.
+
 * Where does the model fail or deviate most significantly? Why might that happen?
+
+*Answer*: The arm encoutered a set_servo_angle on the third and fourth joint. We hypothesize that this could be because the model we trained was not expressive enough (need to increase the dimension of the hidden layer) and/or experiment more with the batch size/learning rate.
+
 * What could go wrong if the robot starts from a pose outside the demonstration distribution?
+
+*Answer*: If the robot starts from a pose outside the demonstration, then the robot has entered a state that is out-of-distribution, leading to the distributional shift problem mentioned in class. Thus, the action predicted by the BC policy in this state will likely be meaningless.
+
+
 * Why is normalization of states and actions important for BC performance? Is this the only way to pre-process data?
+
+*Answer*: Normalization of states and actions is important for BC performance because it leads to more stable training as larger inputs could lead to larger gradient updates. Alternative ways to pre-process the data could be to smoothen the trajectories such that the motions are less jerky.
 
 ## Part 3: DAgger
 
@@ -188,9 +200,16 @@ Record EEF state trajectories using plot_3d_positions.
 
 ### Reflection Questions
 * How does DAgger improve performance compared to vanilla BC?
+
+*Answer*: DAgger improves performance compared to vanilla BC because the algorithm will query the expert for all states, including states that are out-of-distribution.
 * Which states benefit most from expert relabeling?
+
+*Answer*: States that benefit most from expert relabeling are states that are out-of-distribution for the current trained policy.
 * How does high-frequency data affect DAgger’s stability and learning?
+*Answer*: High-frequency data helps DAgger's stability because the learned policy will be able to create fine-grained actions, which will lead to less jerky motions.
+
 * What are potential risks if β decays too quickly or too slowly?
+
 * How could you extend this approach to handle dynamic tasks or obstacles?
 
 ## Final Questions
