@@ -51,7 +51,7 @@ def policy(arm):
     # TODO 5: Choose a gripper command
     #   - keep it fixed
     #   - or periodically open/close
-    g = 600 + 100 * np.sin(t)
+    g = g
 
     # TODO 6: Concatenate joint deltas and gripper command
     # Return a numpy array of shape (8,)
