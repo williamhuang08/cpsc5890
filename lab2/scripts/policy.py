@@ -46,8 +46,7 @@ def policy(arm):
     #   - piecewise constant deltas for square-like motion
     #   - linear ramp forward then backward
     t = time.time() - t_p
-    for i in range(7):
-        dq[i] = np.sin(t + i) * 0.1
+    dq[0] = np.sin(t) * 0.1
 
     # TODO 5: Choose a gripper command
     #   - keep it fixed
