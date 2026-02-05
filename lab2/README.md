@@ -214,21 +214,21 @@ Record EEF state trajectories using plot_3d_positions.
 
 * What are potential risks if β decays too quickly or too slowly?
 
-*Answer*: If beta decays too quickly we do not query the expert enough early on which might lead to us aggregating unsage and far from intended states in our dataset. This would mean worse performance later on. If it decays too slowly then we essentially are doing the same thing as BC since we query the expert on basically every state.
+*Answer*: If beta decays too quickly, we do not query the expert enough early on, which might lead to us aggregating unsage and far from intended states in our dataset. This would mean worse performance later on. If it decays too slowly, then the policy becomes too reliant on the expert, leading the agent to frequently reach states that the agent has already seen.
 
 * How could you extend this approach to handle dynamic tasks or obstacles?
 
-*Answer*: We could add in more information to the model such as obstacle locations (potentially through RGB or some other encoding). Since DAgger does well at handling slight variation we can add more dynamism such that the model doesn't overfit and is comfortable with varition in its environment.
+*Answer*: We could add more information to the model such as obstacle locations (potentially through RGB or some other encoding). Since DAgger does well at handling slight variation we can add more dynamism such that the model doesn't overfit and is comfortable with varition in its environment.
 
 ## Final Questions
 
 * How are demonstrations represented in the dataset? What do the observation and action arrays correspond to?
 
-*Answer*: They are represented as observations and actions. The observation array corresponds to joint angle and gripper position pairs and the action array corresponds to a list of actions that are predicted by the model according to the policy.
+*Answer*: They are represented as observations and actions. The observation array corresponds to joint angle and gripper position pairs, and the action array corresponds to a list of joint angle changes for each joint on the robot arm that is predicted by the model according to the policy.
 
 * How does the sampling frequency (low vs high frequency) affect the recorded data?
 
-*Answer*: If we sample more frequently (high frequency) we have more data which also means that the actions we predict are smoother since dq is small due to the difference in consecutive states being smaller. Similarly the opposite is true for low frequency sampling. 
+*Answer*: If we sample more frequently (high frequency), we have more data, which also means that the actions we predict are smoother since dq is small due to the difference in consecutive states being smaller. Similarly, the opposite is true for low-frequency sampling. 
 
 * Did you notice any noise or irregularities in the demonstrations? How might these affect imitation learning?
 
@@ -236,15 +236,15 @@ Record EEF state trajectories using plot_3d_positions.
 
 * How closely did the BC model reproduce the original demonstrations? Provide examples.
 
-*Answer*: Cannot say as we were unable to get to this point in lab.
+*Answer*: Although we were not able to reproduce the task of picking up a block from the table, we were able to move the arm to nearly reach the table before we got a set_servo_angle error.
 
 * In which situations did the BC model fail or deviate from the demonstrations? Why might this happen?
 
-*Answer*: Cannot say as we were unable to get to this point in lab.
+*Answer*: Cannot say as we were unable to get to this point in lab. However, I hypothesize that this would happen when the BC policy encounters states that are out-of-distribution.
 
 * How does the model behave when the robot starts from a state outside the demonstration distribution?
 
-*Answer*: Cannot say as we were unable to get to this point in lab.
+*Answer*: Cannot say as we were unable to get to this point in lab. However, I would predict that the predicted actions by the policy would be meaningless.
 
 * How do hyperparameters (epochs, batch size, learning rate) affect the training and test loss?
 
@@ -252,7 +252,7 @@ Record EEF state trajectories using plot_3d_positions.
 
 * How smooth and responsive were the robot’s actions during BC inference? Were there any jerks or unexpected movements?
 
-*Answer*: Cannot say as we were unable to get to this point in lab.
+*Answer*: The robot's actions seemed to be jerky at times, especially when the robot arm started to move down to pick up the object. We hypothesize that this may be because the kinesthetic demonstrations were not that smooth.
 
 * Why is normalization of states and actions crucial for BC? Can you think of other preprocessing methods that might help?
 
@@ -260,7 +260,7 @@ Record EEF state trajectories using plot_3d_positions.
 
 * How does DAgger address the compounding error problem seen in vanilla BC?
 
-*Answer*: We were unable to observe this empirically however theoretically speaking it addresses the compounding error by augmenting the dataset through calls to eht expert and the policy (which we then retrain on). Generally we decay beta as well so we tend to query the expert less as time goes on, allowing our model to not overfit to the expert and suffer the compounding issue.
+*Answer*: We were unable to observe this empirically. However, theoretically speaking, it addresses the compounding error by augmenting the dataset through calls to the expert and the policy (which we then retrain on). Generally, we decay beta as well, so we tend to query the expert less over time, allowing our model not to overfit to the expert and avoid the compounding issue.
 
 * What effect did aggregating on-policy states have on model performance?
 
