@@ -29,28 +29,36 @@ def policy(arm):
     #   - current joint angles
     #   - current gripper position
     # Hint: use get_joint_angles(arm), get_gripper_position(arm)
+    q = get_joint_angles(arm)
+    g = get_gripper_position(arm)
 
     # TODO 2: Define a time variable or step counter
     # Hint: time.time() or a global counter
+    t_p = time.time()
 
     # TODO 3: Initialize a 7D delta joint vector (Δq)
     # Example: dq = np.zeros(7)
+    dq = np.zeros(7)
 
     # TODO 4: Modify one or more joint deltas to create motion
     # Examples:
     #   - sinusoidal motion for smooth back-and-forth movement
     #   - piecewise constant deltas for square-like motion
     #   - linear ramp forward then backward
+    t = time.time() - t_p
+    for i in range(7):
+        dq[i] = np.sin(t + i) * 0.1
 
     # TODO 5: Choose a gripper command
     #   - keep it fixed
     #   - or periodically open/close
+    g = 600 + 100 * np.sin(t)
 
     # TODO 6: Concatenate joint deltas and gripper command
     # Return a numpy array of shape (8,)
+    action = np.concatenate([dq, [g]])
 
-    raise NotImplementedError("Implement a simple policy for demonstration")
-
+    return action
 
 def main():
 
