@@ -148,9 +148,9 @@ def rollout_dagger_collect(
             # q = get_joint_angles(arm)
             # g = float(get_gripper_position(arm))
             # state = np.concatenate([q, [g]]).astype(np.float32)
-            q = get_joint_angles(arm)       # TODO
-            g = float(get_gripper_position(arm))       # TODO
-            state = np.concatenate([q, [g]]).astype(np.float32)  # TODO
+            q = get_joint_angles(arm)
+            g = float(get_gripper_position(arm))
+            state = np.concatenate([q, [g]]).astype(np.float32)
 
             # TODO: 
             obs_buffer.append(state)
@@ -259,7 +259,13 @@ def main():
         print(f"Train samples: {len(Xtr0)} | Test samples: {len(Xte0)}")
 
         # TODO: train initial BC on demonstrations using train_bc_on_arrays
-        model, (X_mean, X_std, Y_mean, Y_std) = train_bc_on_arrays(Xtr0, Ytr0, Xte0, Yte0) # TODO
+        model, (X_mean, X_std, Y_mean, Y_std) = train_bc_on_arrays(
+            Xtr0, Ytr0, Xte0, Yte0,
+            device=device,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            lr=args.lr,
+        ) # TODO
 
         # TODO (optional): save model and normalization
         # torch.save(...)
@@ -302,8 +308,28 @@ def main():
                 # - aggregate X_new/Y_new into Xtr_agg/Ytr_agg
                 # - retrain using train_bc_on_arrays on aggregated dataset
                 # - save artifacts each iteration (optional)
-                rollout_dagger_collect(arm, model, )
-                raise NotImplementedError
+                X_new_raw, Y_new_raw = rollout_dagger_collect(
+                    arm, 
+                    model,
+                    (X_mean, X_std, Y_mean, Y_std),
+                    device=device,
+                    obs_horizon=args.obs_horizon,
+                    episodes=args.dagger_rollout_episodes,
+                    beta=beta
+                )   
+                Xtr_agg = np.concatenate([Xtr_agg, X_new_raw], axis=0)
+                Ytr_agg = np.concatenate([Ytr_agg, Y_new_raw], axis=0)
+
+                model, (X_mean, X_std, Y_mean, Y_std) = train_bc_on_arrays(
+                    Xtr_agg, Ytr_agg, Xte, Yte,
+                    device=device,
+                    epochs=args.epochs,
+                    batch_size=args.batch_size,
+                    lr=args.lr,
+                )
+
+                # torch.save(model.state_dict(), 'asset/dagger_policy.pt')
+                # np.savez('asset/dagger_norm.npz', X_mean=X_mean, X_std=X_std, Y_mean=Y_mean, Y_std=Y_std)
 
         finally:
             disconnect_arm(arm)
@@ -313,13 +339,16 @@ def main():
         model = BCPolicy(obs_dim=Xtr0.shape[1], act_dim=Ytr0.shape[1]).to(device)
 
         # TODO: load dagger policy weights (asset/dagger_policy.pt)
-        raise NotImplementedError
+        model.load_state_dict(torch.load('asset/dagger_policy.pt', weights_only=True))
 
         model.eval()
 
         # TODO: load dagger normalization (asset/dagger_norm.npz)
-        raise NotImplementedError
-        X_mean, X_std, Y_mean, Y_std = None, None, None, None  # TODO
+        with np.load('asset/bc_norm.npz') as data:
+            X_mean = data['X_mean']
+            X_std = data['X_std']
+            Y_mean = data['Y_mean']
+            Y_std = data['Y_std']
 
         arm = connect_arm(ArmConfig(ip=args.ip))
 
@@ -352,7 +381,38 @@ def main():
 
                 for t in range(args.inf_steps):
                     # TODO: read state, update buffer, stack, normalize, predict, unnormalize, execute
-                    raise NotImplementedError
+                    q = get_joint_angles(arm)
+                    g = get_gripper_position(arm)
+                    state = np.concatenate([q, [g]])
+                    eef_state = get_tcp_pose(arm)
+
+                    obs_buffer.append(state)
+                    if len(obs_buffer) < args.obs_horizon: continue
+
+                    obs_stack = np.concatenate(list(obs_buffer), axis=0)
+                    x = (obs_stack - X_mean) / X_std
+                    x = torch.tensor(x, dtype=torch.float32).to(device)
+
+                    with torch.no_grad():
+                       a_norm = model(x).cpu().numpy()
+
+                    dg = int(a_norm[7] >= 0.5)
+    
+                    action = a_norm + Y_std + Y_mean
+                    dq = action[:7]
+
+                    print(f"delta ANGLE = {dq}")
+                    print(f"Prev ANGLE = {q}")
+                    print(f"ANGLE = {q + dq}")
+                    arm.set_servo_angle(angle=(q + dq).tolist(), speed=0.5, wait=True, is_radian=True)
+                    if dg == 1:
+                        arm.set_gripper_position(850, wait=True, speed=0.1) 
+                    else:
+                        arm.set_gripper_position(0, wait=True, speed=0.1) 
+
+                    states.append(state)
+                    actions.append(action)
+                    eefs.append(eef_state)
 
                 ep_states_list.append(np.asarray(states, dtype=np.float32))
                 ep_actions_list.append(np.asarray(actions, dtype=np.float32))

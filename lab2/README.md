@@ -198,6 +198,8 @@ Record EEF state trajectories using plot_3d_positions.
 * Videos of robot performing DAgger policy. Label successes and failures.
 * EEF trajectories visualized in 3D.
 
+*Answer*: All of these are not observable since we were unable to get to this point in the lab.
+
 ### Reflection Questions
 * How does DAgger improve performance compared to vanilla BC?
 
@@ -205,37 +207,69 @@ Record EEF state trajectories using plot_3d_positions.
 * Which states benefit most from expert relabeling?
 
 *Answer*: States that benefit most from expert relabeling are states that are out-of-distribution for the current trained policy.
+
 * How does high-frequency data affect DAgger’s stability and learning?
+
 *Answer*: High-frequency data helps DAgger's stability because the learned policy will be able to create fine-grained actions, which will lead to less jerky motions.
 
 * What are potential risks if β decays too quickly or too slowly?
 
+*Answer*: If beta decays too quickly we do not query the expert enough early on which might lead to us aggregating unsage and far from intended states in our dataset. This would mean worse performance later on. If it decays too slowly then we essentially are doing the same thing as BC since we query the expert on basically every state.
+
 * How could you extend this approach to handle dynamic tasks or obstacles?
+
+*Answer*: We could add in more information to the model such as obstacle locations (potentially through RGB or some other encoding). Since DAgger does well at handling slight variation we can add more dynamism such that the model doesn't overfit and is comfortable with varition in its environment.
 
 ## Final Questions
 
 * How are demonstrations represented in the dataset? What do the observation and action arrays correspond to?
 
+*Answer*: They are represented as observations and actions. The observation array corresponds to joint angle and gripper position pairs and the action array corresponds to a list of actions that are predicted by the model according to the policy.
+
 * How does the sampling frequency (low vs high frequency) affect the recorded data?
+
+*Answer*: If we sample more frequently (high frequency) we have more data which also means that the actions we predict are smoother since dq is small due to the difference in consecutive states being smaller. Similarly the opposite is true for low frequency sampling. 
 
 * Did you notice any noise or irregularities in the demonstrations? How might these affect imitation learning?
 
+*Answer*: Cannot say as we were unable to get to this point in lab.
+
 * How closely did the BC model reproduce the original demonstrations? Provide examples.
+
+*Answer*: Cannot say as we were unable to get to this point in lab.
 
 * In which situations did the BC model fail or deviate from the demonstrations? Why might this happen?
 
+*Answer*: Cannot say as we were unable to get to this point in lab.
+
 * How does the model behave when the robot starts from a state outside the demonstration distribution?
+
+*Answer*: Cannot say as we were unable to get to this point in lab.
 
 * How do hyperparameters (epochs, batch size, learning rate) affect the training and test loss?
 
+*Answer*: We saw that raising the number of epochs decreased our loss. Learning rate and batch size we were unable to test thoroughly as we were fighting through the bugs in lab.
+
 * How smooth and responsive were the robot’s actions during BC inference? Were there any jerks or unexpected movements?
+
+*Answer*: Cannot say as we were unable to get to this point in lab.
 
 * Why is normalization of states and actions crucial for BC? Can you think of other preprocessing methods that might help?
 
+*Answer*: Normalization is crucial since we have to equate the states and actions somehow as joint angles and gripper positions take on different scales. Addtiioanlyl as mentioned earlier its important to stabilize gradients and improve training. Other preprocessing might be things like low pass filters in order to improve smoothness.
+
 * How does DAgger address the compounding error problem seen in vanilla BC?
+
+*Answer*: We were unable to observe this empirically however theoretically speaking it addresses the compounding error by augmenting the dataset through calls to eht expert and the policy (which we then retrain on). Generally we decay beta as well so we tend to query the expert less as time goes on, allowing our model to not overfit to the expert and suffer the compounding issue.
 
 * What effect did aggregating on-policy states have on model performance?
 
+*Answer*: Cannot say as we were unable to get to this point in lab.
+
 * How did the choice of beta (expert probability) affect the policy rollout? What happened when beta decayed too quickly or too slowly?
 
+*Answer*: Cannot say as we were unable to get to this point in lab.
+
 * If DAgger did not improve policy by much, why?
+
+*Answer*: Cannot say as we were unable to get to this point in lab.
