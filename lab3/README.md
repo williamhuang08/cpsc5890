@@ -60,13 +60,23 @@ to
 
 When do images actually help Behavior Cloning?
 
+Answer: Images help behvaiour cloning when the task depends on spatial information and when object pose/orientation and visual cues matter (often when state embedding is incomplete). When state vectors do not fully decsribe an environment, images help add more information. For example, in a gripping/grasping object task, state vectors may describe position coordinates of object and joint angles of the robot, but the object won't always be in the same position and so images can help add information (where the object/target is, which is the right target, whether it was successfully grasped, etc). 
+
 Why is the image encoder applied independently at each timestep?
+
+Answer: because each BC treats each timestep is treated as an independent supervised learning example (because of Markov assumption). 
 
 Why can BatchNorm be problematic in image-based BC?
 
+Batchnorm can be problematic because it relies on fixed running averages during inference and when the distribution shifts from training/demonstrations, the feature statistics change which can lead to big compounding distortions.  
+
 What are the risks of training an image encoder from scratch in BC?
 
+Answer: poor generalization, encoder might learn spurious correlations (irrelevant to task), distribution shift is amplified, can be more computationally costly
+
 How can you tell whether the policy is actually using visual information?
+
+Answer: 
 
 ---
 
@@ -121,8 +131,13 @@ Report:
 ### Questions
 
 - When does increasing latent size stop helping?
+Answer: if validation reconstruction loss plateaus/doesn't improve as you continue increasing latent size, it implies its stopped helping. 
+
 - Which model overfits?
+Answer:
+
 - What is the best latent dimension for reconstruction?
+Answer: 
 
 Now BC predicts **latent actions** instead of raw actions:
 
