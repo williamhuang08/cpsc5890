@@ -76,7 +76,7 @@ Answer: poor generalization, encoder might learn spurious correlations (irreleva
 
 How can you tell whether the policy is actually using visual information?
 
-Answer: 
+Answer: one way we could test this is compare the output of the policy when provided an encoded image that is not helpful to the task to the output of the policy when provided with a task-relevant image
 
 ---
 
