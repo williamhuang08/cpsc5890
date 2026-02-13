@@ -12,6 +12,7 @@ Students will fill in:
 import os
 import argparse
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from collections import deque
@@ -130,11 +131,11 @@ class BCPolicy(nn.Module):
         # -------------------------------
         # TODO: define network layers
         self.net = nn.Sequential(
-            nn.Linear(obs_dim, 128),
+            nn.Linear(obs_dim, 32),
             nn.ReLU(),
-            nn.Linear(128, 128),
+            nn.Linear(32, 32),
             nn.ReLU(),
-            nn.Linear(128, act_dim)
+            nn.Linear(32, act_dim)
         )
 
         # -------------------------------
@@ -186,7 +187,7 @@ def main():
     parser.add_argument("--out", default="asset/inf.npz")
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--obs_horizon", type=int, default=1)
-    parser.add_argument("--inf_steps", type=int, default=10)
+    parser.add_argument("--inf_steps", type=int, default=100)
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -229,10 +230,14 @@ def main():
         train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
         test_loader = DataLoader(test_ds, batch_size=args.batch_size)
 
-        # Model
+        # Modelset_serv
         model = BCPolicy(obs_dim=Xtr.shape[1], act_dim=Ytr.shape[1]).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
         loss_fn = nn.MSELoss()
+
+        train_mses = []
+        test_mses = []
+        epochs = []
 
         # Train
         for ep in range(1, args.epochs + 1):
@@ -250,6 +255,9 @@ def main():
             if ep % 5 == 0 or ep == 1:
                 train_mse = evaluate(model, train_loader, device)
                 test_mse = evaluate(model, test_loader, device)
+                train_mses.append(train_mse.cpu())
+                test_mses.append(test_mse.cpu())
+                epochs.append(ep)
                 print(train_mse, test_mse)
                 print(
                     f"Epoch {ep:03d} | "
@@ -257,6 +265,11 @@ def main():
                     f"Test MSE: {test_mse:.6f}"
                 )
 
+        plt.plot(epochs, train_mses, label="Train Loss")
+        plt.plot(epochs, test_mses, label="Test Loss")
+        plt.title("BC Train/Test Losses")
+        plt.legend()
+        plt.savefig("BC_Losses_1000.png")
         # Save model
         # TODO: save model weights to asset/bc_policy.pt
         torch.save(model.state_dict(), 'asset/bc_policy.pt')
@@ -338,7 +351,7 @@ def main():
                     # - g = get_gripper_position(arm)
                     # - state = np.concatenate([q, [g]])  (or whatever your obs definition is)
                     # - eef_state = get_tcp_pose(arm)
-                    q = get_joint_angles(arm)          # TODO
+                    q = torch.tensor(get_joint_angles(arm)) # TODO
                     g = get_gripper_position(arm)          # TODO
                     state = np.concatenate([q, [g]])      # TODO
                     eef_state = get_tcp_pose(arm)  # TODO
@@ -371,7 +384,7 @@ def main():
                     # dg = ...
                     dg = int(a_norm[7] >= 0.5)
     
-                    action = a_norm + Y_std + Y_mean
+                    action = a_norm * Y_std + Y_mean
                     dq = action[:7]
 
 

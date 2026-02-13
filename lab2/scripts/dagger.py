@@ -64,10 +64,13 @@ def train_bc_on_arrays(
     Yte = normalize(Y_raw_test, Y_mean, Y_std)
 
     # TODO: wrap in datasets + loaders
-    train_ds = TensorDataset(Xtr, Ytr)
-    test_ds = TensorDataset(Xte, Yte)
-    train_loader = DataLoader(Xtr, Ytr)
-    test_loader = DataLoader(Xte, Yte)
+    # print(Xtr)
+    # print("=================")
+    # print(Ytr)
+    train_ds = TensorDataset(torch.from_numpy(Xtr), torch.from_numpy(Ytr))
+    test_ds = TensorDataset(torch.from_numpy(Xte), torch.from_numpy(Yte))
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_ds, batch_size=batch_size)
 
     # TODO: create model, optimizer, loss
     model = BCPolicy(obs_dim=Xtr.shape[1], act_dim=Ytr.shape[1]).to(device)
@@ -80,6 +83,10 @@ def train_bc_on_arrays(
     #   for x,y in train_loader:
     #     ...
     #   optionally print evaluate() every few epochs
+
+    train_mses = []
+    test_mses = []
+    eps = []
     for ep in range(1, epochs+1):
         model.train()
         for x, y in train_loader:
@@ -90,6 +97,24 @@ def train_bc_on_arrays(
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        if ep % 5 == 0 or ep == 1:
+            train_mse = evaluate(model, train_loader, device)
+            test_mse = evaluate(model, test_loader, device)
+            train_mses.append(train_mse.cpu())
+            test_mses.append(test_mse.cpu())
+            eps.append(ep)
+            print(train_mse, test_mse)
+            print(
+                f"Epoch {ep:03d} | "
+                f"Train MSE: {train_mse:.6f} | "
+                f"Test MSE: {test_mse:.6f}"
+            )
+
+    plt.plot(eps, train_mses, label="Train Loss")
+    plt.plot(eps, test_mses, label="Test Loss")
+    plt.title("Dagger Train/Test Losses")
+    plt.legend()
+    plt.savefig(f"Dagger_Losses_{len(eps)}.png")
             
     return model, (X_mean, X_std, Y_mean, Y_std)
 
@@ -148,7 +173,7 @@ def rollout_dagger_collect(
             # q = get_joint_angles(arm)
             # g = float(get_gripper_position(arm))
             # state = np.concatenate([q, [g]]).astype(np.float32)
-            q = get_joint_angles(arm)
+            q = torch.tensor(get_joint_angles(arm))
             g = float(get_gripper_position(arm))
             state = np.concatenate([q, [g]]).astype(np.float32)
 
@@ -158,7 +183,7 @@ def rollout_dagger_collect(
         
 
             # TODO: obs_stack = np.concatenate(list(obs_buffer), axis=0).astype(np.float32)
-            obs_stack = np.concatenate(list(obs_buffer), axis=0).astype(np.float)  # TODO
+            obs_stack = np.concatenate(list(obs_buffer), axis=0).astype(np.float32)  # TODO
 
             # --- expert label (DAgger) ---
             # IMPORTANT: label with expert for visited states
@@ -223,7 +248,7 @@ def main():
 
     # BC training params
     parser.add_argument("--epochs", type=int, default=1000)
-    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--test-frac", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
@@ -258,7 +283,7 @@ def main():
     if args.mode == "train":
         print(f"Train samples: {len(Xtr0)} | Test samples: {len(Xte0)}")
 
-        # TODO: train initial BC on demonstrations using train_bc_on_arrays
+        # TODO: train initial BC onEpoch 015 | Train MSE: 1.166820 | Test MSE: 1.164088 demonstrations using train_bc_on_arrays
         model, (X_mean, X_std, Y_mean, Y_std) = train_bc_on_arrays(
             Xtr0, Ytr0, Xte0, Yte0,
             device=device,
@@ -381,7 +406,7 @@ def main():
 
                 for t in range(args.inf_steps):
                     # TODO: read state, update buffer, stack, normalize, predict, unnormalize, execute
-                    q = get_joint_angles(arm)
+                    q = torch.tensor(get_joint_angles(arm))
                     g = get_gripper_position(arm)
                     state = np.concatenate([q, [g]])
                     eef_state = get_tcp_pose(arm)
@@ -398,7 +423,7 @@ def main():
 
                     dg = int(a_norm[7] >= 0.5)
     
-                    action = a_norm + Y_std + Y_mean
+                    action = a_norm * Y_std + Y_mean
                     dq = action[:7]
 
                     print(f"delta ANGLE = {dq}")
