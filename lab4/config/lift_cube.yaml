@@ -1,0 +1,42 @@
+task_name: lift_cube
+data_dir: /home/robot-lab/Downloads/xarm_lift_data
+save_model_name: lift_cube
+
+obs_horizon: 1
+action_horizon: 8
+pred_horizon: 16
+
+num_diffusion_steps: 100
+epochs: 50
+batch_size: 64
+lr: 1.0e-4
+unet_weight_decay: 1.0e-3
+obs_encoder_weight_decay: 1.0e-6
+betas: [0.9, 0.95]
+max_norm: 1.0
+checkpoint_interval: 10
+
+image_type: both     # "wrist", "external", "both", or "none"
+
+load_model_name: lift_cube_epoch_100
+num_inference_steps: 100
+eta: 0.0
+
+
+denoise_vis:
+  enabled: true
+  out_dir: "asset/vis"
+  fps: 6
+  subsample_frames: 0      # 0 = all denoise steps, else e.g. 12
+  overlay_gt: true
+  save_once: true
+
+  # where joint angles live inside obs vector (7 indices)
+  obs_q_idx: [0,1,2,3,4,5,6]
+
+  # how to interpret predicted actions -> joint trajectory
+  action_mode: "delta"     # "delta" (delta-q) or "absolute" (q directly)
+  action_q_idx: null       # if actions have extra dims, set 7 indices; null => first 7
+
+  # FK parameterization
+  fk_which: "modified"     # "modified" or "standard"
