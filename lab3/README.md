@@ -120,9 +120,9 @@ Create a **3×3 table**:
 
 | Latent Dim ↓ / Model Size → | Small | Medium | Large |
 |-----------------------------|-------|--------|-------|
-| Low dim                     |       |        |       |
-| Mid dim                     |       |        |       |
-| High dim                    |       |        |       |
+| Low dim                     |     0.0011752/0/017124  |     0.009181/0.012958   |    0.007741/0.0131441   |
+| Mid dim                     |  0.010800/0.018646     |      0.006289/0.007162  |    0.004279/0.004815   |
+| High dim                    |     0.005008/0.006327  |    0.004282/0.004889    |      0.003876/0.004348 |
 
 Report:
 - Training reconstruction loss
@@ -134,10 +134,10 @@ Report:
 Answer: if validation reconstruction loss plateaus/doesn't improve as you continue increasing latent size, it implies its stopped helping. 
 
 - Which model overfits?
-Answer:
+Answer:none of the above models overfit, but after a threshold of high dim and hidden layers, model starts overfitting and loss plateaus. 
 
 - What is the best latent dimension for reconstruction?
-Answer: 
+Answer: it varies/depends on the model 
 
 Now BC predicts **latent actions** instead of raw actions:
 
