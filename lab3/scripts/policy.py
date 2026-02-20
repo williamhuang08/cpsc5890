@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from bc import BCConvMLPPolicy
-from action_vae import ActionVAE
+from action_vae import ActionVAE, BCConvMLPPolicyLatent
 
 import numpy as np
 import torch
@@ -42,20 +42,31 @@ class UniversalPolicy:
       # self.model = BCConvMLPPolicy(**bc_model_kwargs).to(device)
 
       # TODO: load model, init buffers, etc.
-      ckpt_path = "asset/checkpoints/bcconv_latent_final.pt"
-      # ckpt_path = "asset/checkpoints/bcconv_final.pt"
-      ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
 
-      # self.model = BCConvMLPPolicy(**ckpt["model_kwargs"]).to(self.device)
-      self.model = ActionVAE(**ckpt["policy_kwargs"]).to(self.device)
-      self.model.load_state_dict(ckpt["model_state_dict"])
+      # action vae
+      ckpt_path_vae = "asset/checkpoints/bcconv_latent_final.pt"
 
-      self.model.eval()
-      self.stats = ckpt["stats"]
+      # bc
+      ckpt_path_bc = "asset/checkpoints/bcconv_final.pt"
 
-      self.obs_horizon = self.model.obs_horizon
-      self.obs_dim = self.model.obs_dim
-      self.pred_horizon = self.model.pred_horizon
+      ckpt_bc = torch.load(ckpt_path_bc, map_location=self.device, weights_only=False)
+      ckpt_vae = torch.load(ckpt_path_vae, map_location=self.device, weights_only=False)
+
+      # bc
+      self.bc = BCConvMLPPolicyLatent(**ckpt_vae["policy_kwargs"]).to(self.device)
+      self.bc.load_state_dict(ckpt_vae["policy_state_dict"])
+      self.bc.eval()
+
+      # action vae
+      self.vae = ActionVAE(**ckpt_vae["action_ae_kwargs"]).to(self.device)
+      self.vae.load_state_dict(ckpt_vae["action_ae_state_dict"])
+      self.vae.eval()
+
+
+
+      self.obs_horizon = self.bc.obs_horizon
+      self.obs_dim = self.bc.obs_dim
+      self.pred_horizon = self.bc.pred_horizon
     
       self.buffer = deque()
 
@@ -111,7 +122,9 @@ class UniversalPolicy:
         obs_wrist_h = torch.tensor(np.expand_dims(obs_wrist_h, axis=0), device=self.device).float()
 
         with torch.no_grad():
-          action = self.model(obs_jp_h, obs_base_h, obs_wrist_h).cpu().squeeze(0)
+          z = self.bc(obs_jp_h, obs_base_h, obs_wrist_h)
+          action = self.vae.decode(z).cpu().squeeze(0)
+          # action = self.model()
           print(obs_jp_h)
           print(action[0])
 

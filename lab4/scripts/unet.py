@@ -289,7 +289,7 @@ class DiffusionPolicyUNet1D(nn.Module):
         #   1D conv expects channels-first format.
         #
         # YOUR CODE HERE
-        raise NotImplementedError
+        noisy_actions = torch.transpose(noisy_actions, 1, 2)
 
 
         # ============================================================
@@ -307,7 +307,7 @@ class DiffusionPolicyUNet1D(nn.Module):
         # Map timesteps [B] → t_feat [B, t_dim]
         #
         # YOUR CODE HERE
-        raise NotImplementedError
+        timesteps = self.diffusion_step_encoder(timesteps)
 
 
         # ============================================================
@@ -327,7 +327,21 @@ class DiffusionPolicyUNet1D(nn.Module):
         # Concatenate along last dim.
         #
         # YOUR CODE HERE
-        raise NotImplementedError
+        if observations["external"] is not None:
+            ext_enc = time_distributed(observations["external"], self.obs_encoder.obs_nets["external"], inputs_as_kwargs=False)
+
+
+        if observations["wrist"] is not None:
+            wst_enc = time_distributed(observations["wrist"], self.obs_encoder.obs_nets["wrist"], inputs_as_kwargs=False)
+
+        if observations["low_dim_obs"] is not None:
+            if len(observations["low_dim_obs"]) == 2:
+                low_dim_obs = observations["low_dim_obs"].copy().unsqueeze(1)
+                low_dim_obs_enc = low_dim_obs.expand(-1, self.obs_horizon, -1)
+
+        obs_enc = torch.cat([ext_enc, wst_enc, low_dim_obs_enc], dim=-1)
+            
+        
 
 
         # ============================================================
@@ -358,7 +372,11 @@ class DiffusionPolicyUNet1D(nn.Module):
         #   x = down(x)
         #
         # YOUR CODE HERE
-        raise NotImplementedError
+        for res1, res2, down in self.mid_modules:
+            x = res1(x, cond)
+            x = res2(x, cond)
+            h.append(x)
+            x = down(x)
 
 
         # ============================================================
@@ -368,7 +386,8 @@ class DiffusionPolicyUNet1D(nn.Module):
         #   x = mid(x, cond)
         #
         # YOUR CODE HERE
-        raise NotImplementedError
+        for mid in self.mid_modules:
+            x = mid(x, cond)
 
 
         # ============================================================
@@ -381,7 +400,15 @@ class DiffusionPolicyUNet1D(nn.Module):
         #   upsample
         #
         # YOUR CODE HERE
-        raise NotImplementedError
+        for res1, res2, up in self.up_modules:
+            skip = h.pop()
+            x = torch.cat([skip, x], dim=-1)
+            x = res1(x, cond)
+            x = res2(x, cond)
+            x = up(x)
+
+            
+            
 
 
         # ============================================================
@@ -390,7 +417,8 @@ class DiffusionPolicyUNet1D(nn.Module):
         # Map UNet channels → action_dim channels
         #
         # YOUR CODE HERE
-        raise NotImplementedError
+        x = self.final_conv(x)
+        
 
 
         # ============================================================
@@ -470,7 +498,24 @@ class DiffusionPolicyUNet(nn.Module):
         """
 
         # YOUR CODE HERE
-        raise NotImplementedError
+        obs_encoder_params, unet_params = [], []
+        for n, p in self.named_parameters():
+            if p.requires_grad:
+                if "obs_encoder" in n:
+                    obs_encoder_params.append(p)
+                else:
+                    unet_params.append(p)
+
+        optimizer = torch.optim.AdamW(
+            [
+                {"params": unet_params, "weight_decay": unet_weight_decay},
+                {"params": obs_encoder_params, "weight_decay": obs_encoder_weight_decay},
+            ],
+            learning_rate,
+            betas,
+        )
+
+        return optimizer
 
     def forward(self,
                 noisy_actions: torch.Tensor,
@@ -520,7 +565,24 @@ class DiffusionPolicyUNet(nn.Module):
         """
 
         # YOUR CODE HERE
-        raise NotImplementedError
+        if self.training:
+            if img_ext is not None:
+                img_ext_modified = img_ext.unsqueeze(1)
+                img_ext = _random_crop_bhchw(img_ext_modified)
+                img_ext.squeeze(1)
+            if img_wst is not None:
+                img_wst_modified = img_wst.unsqueeze(1)
+                img_wst = _random_crop_bhchw(img_wst_modified)
+                img_wst.squeeze(1)
+        else:
+            if img_ext is not None:
+                img_ext_modified = img_ext.unsqueeze(1)
+                img_ext = _center_crop_bhchw(img_ext_modified)
+                img_ext.squeeze(1)
+            if img_wst is not None:
+                img_wst_modified = img_wst.unsqueeze(1)
+                img_wst = _center_crop_bhchw(img_wst_modified)
+                img_wst.squeeze(1)
 
         obs_dict = {}
         if img_ext is not None:

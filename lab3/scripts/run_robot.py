@@ -40,7 +40,6 @@ def main(args: Args):
             "wrist": ZMQClientCamera(port=args.wrist_camera_port, host=args.hostname),
             "base": ZMQClientCamera(port=args.base_camera_port, host=args.hostname),
         }
-
     env = RobotEnv(robot_client, control_rate_hz=args.hz, camera_dict=camera_clients)
 
     # --- policy ---
@@ -51,14 +50,23 @@ def main(args: Args):
 
     # RL-style loop
     obs = env.get_obs()
+    obs = env.step([0,-0.8,0,0.8,0,1.0,0,0])
+    time.sleep(5)
     t0 = time.time()
+    print("HELLO")
 
     try:
         for step in range(args.max_steps):
             out = policy.step(obs)
             action = np.asarray(out.action, dtype=np.float32)
-
-            obs = env.step(action)
+            for i in range(4):
+                curr_action_grip = action[i][-1]
+                if curr_action_grip >= 0.25:
+                    action[i][-1] = 1
+                else:
+                    action[i][-1] = 0 
+                obs = env.step(action[i])
+                # time.sleep(0.5)
 
             if args.print_every > 0 and (step % args.print_every == 0):
                 elapsed = time.time() - t0

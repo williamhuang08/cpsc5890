@@ -9,7 +9,6 @@ from robomimic.models.base_nets import ResNet18Conv, SpatialSoftmax
 
 from scripts.dataset import make_loaders
 
-
 class Conv1dBlock(nn.Module):
     def __init__(self, inp, out, k=3, n_groups=8):
         super().__init__()

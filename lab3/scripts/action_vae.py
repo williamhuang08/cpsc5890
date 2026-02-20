@@ -374,7 +374,7 @@ def main():
 
     p.add_argument("--data_dir", type=str, default="/home/williamhuang/Downloads/xarm_lift_data")
     p.add_argument("--obs_h", type=int, default=2)
-    p.add_argument("--pred_h", type=int, default=16)
+    p.add_argument("--pred_h", type=int, default=4)
     p.add_argument("--batch_size", type=int, default=64)
     p.add_argument("--include_images", action="store_true", default=True)
     p.add_argument("--test_ratio", type=float, default=0.1)
@@ -411,6 +411,7 @@ def main():
     )
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(device)
 
     # -----------------------------
     # build action encoder (AE or VAE)

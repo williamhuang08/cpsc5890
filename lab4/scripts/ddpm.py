@@ -69,7 +69,6 @@ class DiffusionPolicyTrainer:
         self.data_dir = data_dir
 
         self.task_params = yaml.safe_load(open(f"config/{task_name}.yaml"))
-
         self.build_train_val_datasets(
             data_dir=self.data_dir,
             obs_horizon=self.obs_horizon,
@@ -77,7 +76,7 @@ class DiffusionPolicyTrainer:
             pred_horizon=self.pred_horizon,
             val_ratio=0.1
         )
-        
+        print("Built datasets")
         # DDIM params
         self.num_inference_steps = num_inference_steps    # number of sampling steps (<= num_inference_steps)
         self.eta = eta                                    # DDIM stochasticity (0 = deterministic)
@@ -91,6 +90,7 @@ class DiffusionPolicyTrainer:
             image_type=image_type
             # Any other kwargs like down_dims, kernel_size, n_groups
         ).to(self.device)
+        print("Intialized unet")
 
         self.save_path = "asset/policy/"
 
@@ -204,7 +204,7 @@ class DiffusionPolicyTrainer:
 
     def train(self,
                 num_epochs=100,
-                batch_size=64,
+                batch_size=32,
                 learning_rate=1e-4,
                 unet_weight_decay= 1e-3,
                 obs_encoder_weight_decay= 1e-6,
@@ -214,8 +214,9 @@ class DiffusionPolicyTrainer:
                 model_name=None,
                 checkpoint_interval = 10):
 
-        train_loader = DataLoader(self.train_ds, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=16, pin_memory=True)
-        val_loader   = DataLoader(self.val_ds,   batch_size=batch_size, shuffle=False, drop_last=False, num_workers=16, pin_memory=True)
+        train_loader = DataLoader(self.train_ds, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=0,) #pin_memory=True)
+        print("done train loader")
+        val_loader   = DataLoader(self.val_ds,   batch_size=batch_size, shuffle=False, drop_last=False, num_workers=0,)# pin_memory=True)
 
         # Create directory for logging
         os.makedirs("asset/training", exist_ok=True)
@@ -271,6 +272,7 @@ class DiffusionPolicyTrainer:
             num_warmup_steps= num_training_steps // 10,
             num_training_steps=num_training_steps
         )
+        print("Created scheduler")
 
         # ============================================================
         # TODO: Initialize diffusion timestep schedule
@@ -300,7 +302,7 @@ class DiffusionPolicyTrainer:
         # https://huggingface.co/docs/diffusers/v0.26.2/api/schedulers/ddpm#diffusers.DDPMScheduler.set_timesteps
 
         self.noise_scheduler.set_timesteps(num_diffusion_steps, device=self.device)
-
+        print("Set timesteps")
         with tqdm(range(num_epochs), desc='Epoch', leave=True) as tglobal:
             for epoch_idx in tglobal:
                 self.model.train()
@@ -370,8 +372,24 @@ class DiffusionPolicyTrainer:
                             #   - lr_scheduler.step() is per optimizer step (not per epoch)
                             #
                             # YOUR CODE HERE
-                            noise = torch.from_numpy(np.random.normal(loc=0.0, scale=1.0, size=naction)).to(device)
-                            timesteps = 
+
+                            noise = torch.randn_like(naction).to(self.device, non_blocking=True)
+                            # timesteps = torch.randint(0, num_training_steps - 1, size=(batch_size,)).to(self.device, non_blocking=True)
+                            timesteps = torch.linspace(
+                                0,
+                                self.noise_scheduler.config.num_train_timesteps - 1,
+                                (batch_size,),
+                                dtype=torch.long,
+                            )
+                            x_t = self.noise_scheduler.add_noise(naction, noise, timesteps)
+                            noise_pred = self.model(x_t, timesteps, obs["obs"], obs["img_ext"], obs["img_wst"])
+                            loss = nn.functional.mse_loss(noise_pred, noise)
+                            print(f"Loss = {loss}")
+                            optimizer.zero_grad()
+                            loss.backward()
+                            optimizer.step(), lr_scheduler.step()
+                            ema.update(self.model.parameters())
+                            print("Updated parameters")
 
                         # logging
                         loss_cpu = loss.item()
@@ -448,7 +466,16 @@ class DiffusionPolicyTrainer:
                                 #   - Use .item() to store python floats (not tensors) in val_loss
                                 #
                                 # YOUR CODE HERE
-                                raise NotImplementedError
+                                with torch.no_grad():
+                                    noise = torch.randn_like(naction).to(self.device, non_blocking=True)
+                                    t = torch.randint(0, num_training_steps - 1, size=(naction.shape[0],)).to(self.device, non_blocking=True)
+
+                                    noisy_actions = self.noise_scheduler.add_noise(naction, noise, t)
+                                    pred = self.model(noisy_actions, t, obs["obs"], obs["img_ext"], obs["img_wst"])
+
+                                    loss = nn.functional.mse_loss(pred, noise).item()
+                                    val_loss.append(loss)
+                                    avg_val_loss = np.mean(val_loss)
 
                                 # ============================================================
                                 # TODO: Diffusion sampling loop (reverse process) + action-space evaluation
@@ -497,7 +524,18 @@ class DiffusionPolicyTrainer:
                                 #
                                 # YOUR CODE HERE
                                 # https://huggingface.co/docs/diffusers/v0.26.2/api/schedulers/ddpm#diffusers.DDPMScheduler.step
-                                raise NotImplementedError
+                                with torch.no_grad():
+                                    rand_actions = torch.randn_like(naction).to(self.device, non_blocking=True)
+                                    self.noise_scheduler.set_timesteps(num_diffusion_steps, device=self.device)
+
+                                    for k in self.noise_scheduler.timesteps:
+                                        expanded_k = torch.full((naction.shape[0],), k).to(self.device)
+                                        noise_pred = self.model(rand_actions, expanded_k, obs["obs"], obs["img_ext"], obs["img_wst"])
+                                        rand_actions = self.noise_scheduler.step(noise_pred, k, rand_actions).prev_sample
+
+                                    loss = nn.functional.mse_loss(rand_actions, naction).item()
+                                    action_loss.append(loss)
+                                    avg_action_loss = np.mean(action_loss)
 
                         ema.restore(self.model.parameters())  # restore original weights
 
@@ -567,7 +605,7 @@ def main():
     # Load YAML config
     with open(cli_args.config, "r") as f:
         args = yaml.safe_load(f)
-
+    print("Initializing policy")
     trainer = DiffusionPolicyTrainer(
             task_name=args["task_name"] ,
             data_dir=args["data_dir"],
@@ -577,6 +615,7 @@ def main():
             image_type=args["image_type"],
             eta=args["eta"]
         )
+
 
     print(f"Train samples: {len(trainer.train_ds)}, Validation samples: {len(trainer.val_ds)}")
     sample_obs, sample_ext_imgs, sample_wst_imgs, sample_actions = trainer.train_ds[0]  # (H_o, D_o), (H_a, D_a)
@@ -588,11 +627,10 @@ def main():
     if cli_args.mode == "train":
 
         # logger.info("=== TRAINING MODE ===")
-
         save_dir = os.path.dirname(args["save_model_name"])
         if save_dir and not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
-
+        print("About to train")
         losses = trainer.train(
             num_epochs=args["epochs"],
             batch_size=args["batch_size"],
@@ -803,8 +841,9 @@ def main():
             #
             # YOUR CODE HERE
             # https://huggingface.co/docs/diffusers/v0.26.2/en/api/schedulers/ddpm#diffusers.DDPMScheduler.add_noise
-            raise NotImplementedError
+            noise_scheduler.add_noise(action.unsqueeze(0), noise.unsqueeze(0), timesteps)
 
+            
             noisy_actions.append(noisy[0].detach().cpu())
 
         # --------------------------------------------------

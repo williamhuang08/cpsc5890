@@ -1,5 +1,5 @@
 task_name: lift_cube
-data_dir: /home/robot-lab/Downloads/xarm_lift_data
+data_dir: /home/williamhuang/Downloads/xarm_lift_data
 save_model_name: lift_cube
 
 obs_horizon: 1

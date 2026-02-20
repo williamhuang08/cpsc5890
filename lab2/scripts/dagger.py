@@ -114,7 +114,7 @@ def train_bc_on_arrays(
     plt.plot(eps, test_mses, label="Test Loss")
     plt.title("Dagger Train/Test Losses")
     plt.legend()
-    plt.savefig(f"Dagger_Losses_{len(eps)}.png")
+    plt.savefig(f"Dagger_Losses_low{1000}.png")
             
     return model, (X_mean, X_std, Y_mean, Y_std)
 
