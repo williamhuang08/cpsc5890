@@ -61,13 +61,16 @@ Examples:
 Answer in your writeup:
 
 1. How many steps are necessary to turn a trajectory into a random distribution?
-2. How does the noise schedule affect the corruption rate?
-3. What parameters did you change?
-4. What was their effect on:
+*Answer*: ~ 100 steps
+3. How does the noise schedule affect the corruption rate?
+*Answer*: The corruption rate for all noise schedulers is approximately identical.
+5. What parameters did you change?
+*Answer*: We changed the number of diffusion steps (50, 100, 200).
+7. What was their effect on:
    - Speed of corruption?
    - Smoothness of corruption?
    - Stability?
-
+*Answer*: We changed the number of diffusion steps (50, 100, 200). Fewer diffusion steps result in faster corruption but also lead to corruption that is not as smooth. The stabiltiy of training was very similar.
 ---
 
 ## Deliverable — Forward Process
@@ -126,8 +129,10 @@ For debugging:
 
 Check:
 - Does denoising improve over iterations?
-- Does loss correlate with visual quality?
+*Answer*: Yes, denoising improves significantly over iterations, often converging as the number of diffusion steps approaches the maximum.
 
+- Does loss correlate with visual quality?
+*Answer*: No. For example, linear scheduler w/ 200 diffusion steps had the best visual quality, but the cosine scheduler w/ 200 diffusion steps had the lowest loss.
 ---
 
 ## 3. Train With Different Configurations
@@ -159,14 +164,15 @@ Report final validation loss:
 
 | Noise Schedule | 50 Steps | 100 Steps | 200 Steps |
 |---------------|----------|-----------|-----------|
-| Linear        |          |           |           |
-| Cosine        |          |           |           |
-| Schedule 3    |          |           |           |
+| Linear        |   0.0513249       |   0.039398        |    0.023872       |
+| Cosine        |   0.0214275       |   0.021293        |    0.018970       |
+| Schedule 3    |   0.067531        |   0.043657        |    0.037537       |
 
 Discuss:
 - Does more denoising always help?
+*Answer*: Yes, in general, more denoising steps result in lower validation loss.
 - Which schedule works best?
-
+*Answer*: The cosine scheduler has the lowest validation loss for all amounts of denoising steps.
 ---
 
 # Part 3 — Sampling
@@ -287,15 +293,22 @@ You can slice this list ```episode_files = _list_episode_files(data_dir)``` in `
 Include answers in README:
 
 1. How does the noise schedule affect learning stability?
-2. Why might cosine schedules outperform linear ones?
-3. Why does increasing denoising steps not always improve performance?
-4. Why is diffusion more stable than autoregressive action models?
-5. How does trajectory length affect diffusion difficulty?
-6. Why does sampling produce diverse rollouts?
-7. What failure modes did you observe on the robot?
-8. Why is safety critical when deploying stochastic policies?
-9. How does diffusion compare to behavior cloning for this task?
-10. What tradeoffs exist between speed and sample quality?
+*Answer*: For each of the noise schedulers, the validation loss decreases over time, indicating that learning is stable.
+3. Why might cosine schedules outperform linear ones?
+*Answer*: A cosine scheduler will reduce the amount of noise over time in a smoother way than a linear scheduler.
+5. Why does increasing denoising steps not always improve performance?
+*Answer*: In general, for us, increasing the number of denoising steps reduced the validation loss. However, I can imagine that if the aggregate amount of noise introduced to the image is not large, then a large number of denoising steps may be unnecessary.
+7. Why is diffusion more stable than autoregressive action models?
+*Answer*: 
+9. How does trajectory length affect diffusion difficulty?
+*Answer*: 
+10. Why does sampling produce diverse rollouts?
+*Answer*: Sampling produces diverse rollouts because, for each diffusion step, we are sampling from a distribution to extract the level of noise that we want to remove from the previous noisy trajectory.
+12. What failure modes did you observe on the robot?
+13. Why is safety critical when deploying stochastic policies?
+14. How does diffusion compare to behavior cloning for this task?
+*Answer*: Diffusion performs much better than behavior cloning for this task. In this case, the robot arm is able to move towards the red block, but fails to pick up the block. For behavior cloning, the robot arm was unable to even begin a trajectory towards the block. This is because behavior cloning struggles in learning multimodal behavior, unlike a diffusion policy, which can exhibit multimodal behavior. However, behavior cloning is much faster to train than diffusion, especially as the number of diffusion steps increases. Both diffusion and behavior cloning suffer from action collapse in ood states.
+16. What tradeoffs exist between speed and sample quality?
 
 ---
 
