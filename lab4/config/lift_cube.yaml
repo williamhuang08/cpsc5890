@@ -6,7 +6,7 @@ obs_horizon: 1
 action_horizon: 8
 pred_horizon: 16
 
-num_diffusion_steps: 100
+num_diffusion_steps: 200
 epochs: 50
 batch_size: 64
 lr: 1.0e-4
@@ -18,8 +18,10 @@ checkpoint_interval: 10
 
 image_type: both     # "wrist", "external", "both", or "none"
 
-load_model_name: lift_cube_epoch_100
-num_inference_steps: 100
+# load_model_name: linear_50_model_final
+# load_model_name: scaled_linear_50_model_final
+load_model_name: squaredcos_cap_v2_50_model_final
+num_inference_steps: 50
 eta: 0.0
 
 

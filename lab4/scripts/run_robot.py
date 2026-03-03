@@ -52,12 +52,12 @@ def main(args: Args):
 
     # RL-style loop
     obs = env.get_obs()
+    obs = env.step([0,-0.8,0,0.8,0,1.0,0,0])
     t0 = time.time()
 
     try:
         for step in range(args.max_steps):
-            action_seq = policy.step(obs)                 # (K,8) or (1,8)
-            action_seq = np.asarray(action_seq, dtype=np.float32)
+            action_seq = np.asarray(policy.step(obs).action, dtype=np.float32)
 
             if action_seq.ndim == 1:                      # (8,) -> (1,8)
                 action_seq = action_seq[None, :]
@@ -65,7 +65,7 @@ def main(args: Args):
             # execute the whole chunk
             for a in action_seq:
                 a = np.asarray(a, dtype=np.float32).reshape(-1)  # ensure (8,)
-                a = np.asarray([ 0.024528, -0.885107, -0.065961,  0.704097, -0.001534,  0.909635,  0.027596, -0.      ])
+                # a = np.asarray([ 0.024528, -0.885107, -0.065961,  0.704097, -0.001534,  0.909635,  0.027596, -0.      ])
                 obs = env.step(a)
 
                 if args.print_every > 0 and (step % args.print_every == 0):

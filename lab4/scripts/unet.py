@@ -289,7 +289,7 @@ class DiffusionPolicyUNet1D(nn.Module):
         #   1D conv expects channels-first format.
         #
         # YOUR CODE HERE
-        noisy_actions = torch.transpose(noisy_actions, 1, 2)
+        sample = torch.transpose(noisy_actions, 1, 2)
 
 
         # ============================================================
@@ -327,19 +327,23 @@ class DiffusionPolicyUNet1D(nn.Module):
         # Concatenate along last dim.
         #
         # YOUR CODE HERE
-        if observations["external"] is not None:
+        # ext_enc = observations["external"]
+        # wst_enc = observations["wrist"]
+        # low_dim_obs_enc = observations["low_dim_obs"]
+
+        obs_list = []
+        if "external" in observations and observations["external"] is not None:
             ext_enc = time_distributed(observations["external"], self.obs_encoder.obs_nets["external"], inputs_as_kwargs=False)
-
-
-        if observations["wrist"] is not None:
+            obs_list.append(ext_enc)
+        if "wrist" in observations and observations["wrist"] is not None:
             wst_enc = time_distributed(observations["wrist"], self.obs_encoder.obs_nets["wrist"], inputs_as_kwargs=False)
-
-        if observations["low_dim_obs"] is not None:
-            if len(observations["low_dim_obs"]) == 2:
-                low_dim_obs = observations["low_dim_obs"].copy().unsqueeze(1)
-                low_dim_obs_enc = low_dim_obs.expand(-1, self.obs_horizon, -1)
-
-        obs_enc = torch.cat([ext_enc, wst_enc, low_dim_obs_enc], dim=-1)
+            obs_list.append(wst_enc)
+        if "low_dim_obs" in observations and observations["low_dim_obs"] is not None:
+            low_dim_obs = observations["low_dim_obs"]
+            if len(observations["low_dim_obs"].shape) == 2:
+                low_dim_obs = low_dim_obs.unsqueeze(1).expand(-1, self.obs_horizon, -1)
+            obs_list.append(low_dim_obs)
+        obs_enc = torch.cat(obs_list, dim=-1)
             
         
 
@@ -354,7 +358,7 @@ class DiffusionPolicyUNet1D(nn.Module):
         # ============================================================
         # TODO 6: Combine timestep + observation conditioning
         # ============================================================
-        cond = torch.cat([t_feat, obs_enc], dim=-1)
+        cond = torch.cat([timesteps, obs_enc], dim=-1)
 
         # ============================================================
         # TODO 7: Initialize UNet state
@@ -372,7 +376,7 @@ class DiffusionPolicyUNet1D(nn.Module):
         #   x = down(x)
         #
         # YOUR CODE HERE
-        for res1, res2, down in self.mid_modules:
+        for res1, res2, down in self.down_modules:
             x = res1(x, cond)
             x = res2(x, cond)
             h.append(x)
@@ -402,7 +406,7 @@ class DiffusionPolicyUNet1D(nn.Module):
         # YOUR CODE HERE
         for res1, res2, up in self.up_modules:
             skip = h.pop()
-            x = torch.cat([skip, x], dim=-1)
+            x = torch.cat([skip, x], dim=1)
             x = res1(x, cond)
             x = res2(x, cond)
             x = up(x)
@@ -424,7 +428,7 @@ class DiffusionPolicyUNet1D(nn.Module):
         # ============================================================
         # TODO 12: Restore original tensor layout
         # ============================================================
-        predicted_noise = x.moveaxis(-1, -2)
+        predicted_noise = x.transpose(1, 2)
         return predicted_noise
 
 # Wrapper for compatibility:
@@ -549,15 +553,9 @@ class DiffusionPolicyUNet(nn.Module):
             - Random crop improves robustness and reduces overfitting.
             - Center crop ensures stable evaluation results.
             - UNet expects fixed-size images.
-
-        Inputs:
-            img_ext: [B, 3, H, W]  (external camera)
-            img_wst: [B, 3, H, W]  (wrist camera)
-
-        Outputs:
-            Cropped tensors of shape [B, 3, 96, 96].
-
-        Implementation hints:
+torch.Size([64])
+torch.Size([64, 16, 8])
+torch.Size([64, 16, 8])
             - Only crop if the tensor is not None.
             - Use _random_crop_bhchw(...) during training.
             - Use _center_crop_bhchw(...) during evaluation.
@@ -567,22 +565,14 @@ class DiffusionPolicyUNet(nn.Module):
         # YOUR CODE HERE
         if self.training:
             if img_ext is not None:
-                img_ext_modified = img_ext.unsqueeze(1)
-                img_ext = _random_crop_bhchw(img_ext_modified)
-                img_ext.squeeze(1)
+                img_ext = _random_crop_bhchw(img_ext)
             if img_wst is not None:
-                img_wst_modified = img_wst.unsqueeze(1)
-                img_wst = _random_crop_bhchw(img_wst_modified)
-                img_wst.squeeze(1)
+                img_wst = _random_crop_bhchw(img_wst)
         else:
             if img_ext is not None:
-                img_ext_modified = img_ext.unsqueeze(1)
-                img_ext = _center_crop_bhchw(img_ext_modified)
-                img_ext.squeeze(1)
+                img_ext = _center_crop_bhchw(img_ext)
             if img_wst is not None:
-                img_wst_modified = img_wst.unsqueeze(1)
-                img_wst = _center_crop_bhchw(img_wst_modified)
-                img_wst.squeeze(1)
+                img_wst = _center_crop_bhchw(img_wst)
 
         obs_dict = {}
         if img_ext is not None:

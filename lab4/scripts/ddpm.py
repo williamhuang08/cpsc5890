@@ -55,7 +55,8 @@ class DiffusionPolicyTrainer:
         seed: int = 42,
         num_inference_steps: int = 10,
         eta: float = 0.0,
-        image_type: str = "both"
+        image_type: str = "both",
+        schedule_type = None
     ):
         super().__init__()
         torch.manual_seed(seed)
@@ -76,7 +77,6 @@ class DiffusionPolicyTrainer:
             pred_horizon=self.pred_horizon,
             val_ratio=0.1
         )
-        print("Built datasets")
         # DDIM params
         self.num_inference_steps = num_inference_steps    # number of sampling steps (<= num_inference_steps)
         self.eta = eta                                    # DDIM stochasticity (0 = deterministic)
@@ -98,7 +98,8 @@ class DiffusionPolicyTrainer:
             num_train_timesteps=num_diffusion_steps,
             # the choise of beta schedule has big impact on performance
             # we found squared cosine works the best
-            beta_schedule='squaredcos_cap_v2',
+            beta_schedule=schedule_type,
+            #'squaredcos_cap_v2', 'linear'
             # clip output to [-1,1] to improve stability
             clip_sample=True,
             # our network predicts noise (instead of denoised action)
@@ -109,7 +110,7 @@ class DiffusionPolicyTrainer:
             num_train_timesteps=num_diffusion_steps,
             # the choise of beta schedule has big impact on performance
             # we found squared cosine works the best
-            beta_schedule='squaredcos_cap_v2',
+            beta_schedule=schedule_type,
             # clip output to [-1,1] to improve stability
             clip_sample=False,
             # our network predicts noise (instead of denoised action)
@@ -160,7 +161,6 @@ class DiffusionPolicyTrainer:
         obs_mean, obs_std, act_mean, act_std, act_min, act_max = DiffusionDatasetBoth._compute_obs_action_stats_subset(
             obs, act, train_indices, obs_horizon, action_horizon
         )
-        
         img_ext_mean, img_ext_std = DiffusionDatasetBoth._compute_image_stats_subset_chunked(
             img_ext, train_indices, obs_horizon, chunk=1024
         )
@@ -215,12 +215,11 @@ class DiffusionPolicyTrainer:
                 checkpoint_interval = 10):
 
         train_loader = DataLoader(self.train_ds, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=0,) #pin_memory=True)
-        print("done train loader")
         val_loader   = DataLoader(self.val_ds,   batch_size=batch_size, shuffle=False, drop_last=False, num_workers=0,)# pin_memory=True)
 
         # Create directory for logging
         os.makedirs("asset/training", exist_ok=True)
-        csv_path = os.path.join("asset/training/", f"DiT__state_{model_name or 'model'}_loss_log.csv")
+        csv_path = os.path.join("asset/training/", f"DiT_w_stats_state_{model_name or 'model'}_loss_log.csv")
 
         # Initialize CSV with headers
         with open(csv_path, mode="w", newline="") as f:
@@ -272,7 +271,6 @@ class DiffusionPolicyTrainer:
             num_warmup_steps= num_training_steps // 10,
             num_training_steps=num_training_steps
         )
-        print("Created scheduler")
 
         # ============================================================
         # TODO: Initialize diffusion timestep schedule
@@ -302,7 +300,6 @@ class DiffusionPolicyTrainer:
         # https://huggingface.co/docs/diffusers/v0.26.2/api/schedulers/ddpm#diffusers.DDPMScheduler.set_timesteps
 
         self.noise_scheduler.set_timesteps(num_diffusion_steps, device=self.device)
-        print("Set timesteps")
         with tqdm(range(num_epochs), desc='Epoch', leave=True) as tglobal:
             for epoch_idx in tglobal:
                 self.model.train()
@@ -372,24 +369,21 @@ class DiffusionPolicyTrainer:
                             #   - lr_scheduler.step() is per optimizer step (not per epoch)
                             #
                             # YOUR CODE HERE
-
-                            noise = torch.randn_like(naction).to(self.device, non_blocking=True)
-                            # timesteps = torch.randint(0, num_training_steps - 1, size=(batch_size,)).to(self.device, non_blocking=True)
-                            timesteps = torch.linspace(
-                                0,
-                                self.noise_scheduler.config.num_train_timesteps - 1,
-                                (batch_size,),
-                                dtype=torch.long,
-                            )
+                            B = naction.shape[0]
+                            noise = torch.randn(naction.shape).to(self.device)
+                            timesteps = torch.randint(0, self.noise_scheduler.num_train_timesteps, size=(B,)).to(self.device).long()
                             x_t = self.noise_scheduler.add_noise(naction, noise, timesteps)
-                            noise_pred = self.model(x_t, timesteps, obs["obs"], obs["img_ext"], obs["img_wst"])
+                            # print(x_t)    
+                            ext = obs["img_ext"]
+                            wst = obs["img_wst"]
+                            noise_pred = self.model(x_t, timesteps, obs["obs"], ext, wst)
                             loss = nn.functional.mse_loss(noise_pred, noise)
-                            print(f"Loss = {loss}")
+                            # print(f"Loss = {loss}")
                             optimizer.zero_grad()
                             loss.backward()
                             optimizer.step(), lr_scheduler.step()
-                            ema.update(self.model.parameters())
-                            print("Updated parameters")
+                            ema.step(self.model.parameters())
+                            # print("Updated parameters")
 
                         # logging
                         loss_cpu = loss.item()
@@ -398,8 +392,8 @@ class DiffusionPolicyTrainer:
 
                 # ✅ Save checkpoint every epoch
                 if model_name is not None and (epoch_idx + 1) % checkpoint_interval == 0:
-                    self.save_model(f"{self.save_path}DiT_state_{model_name}_epoch_{epoch_idx+1}.pth")
-                    print(f"💾 Checkpoint saved at {self.save_path}DiT_state_{model_name}_epoch_{epoch_idx+1}.pth")
+                    self.save_model(f"{self.save_path}DiT_w_stats_state_{model_name}_epoch_{epoch_idx+1}.pth")
+                    print(f"💾 Checkpoint saved at {self.save_path}DiT__w_stats_state_{model_name}_epoch_{epoch_idx+1}.pth")
 
                     # --- Validation loop with EMA ---
                     avg_val_loss = np.nan
@@ -468,9 +462,11 @@ class DiffusionPolicyTrainer:
                                 # YOUR CODE HERE
                                 with torch.no_grad():
                                     noise = torch.randn_like(naction).to(self.device, non_blocking=True)
-                                    t = torch.randint(0, num_training_steps - 1, size=(naction.shape[0],)).to(self.device, non_blocking=True)
+                                    t = torch.randint(0, self.noise_scheduler.num_train_timesteps, size=(B,)).to(self.device).long()
 
                                     noisy_actions = self.noise_scheduler.add_noise(naction, noise, t)
+                                    if "img_ext" not in obs: obs["img_ext"] = None
+                                    if "wst_ext" not in obs: obs["wst_ext"] = None
                                     pred = self.model(noisy_actions, t, obs["obs"], obs["img_ext"], obs["img_wst"])
 
                                     loss = nn.functional.mse_loss(pred, noise).item()
@@ -556,8 +552,8 @@ class DiffusionPolicyTrainer:
 
         # save model checkpoint if save_path is provided
         if model_name is not None:
-            self.save_model(f"{self.save_path}DiT_state_{model_name}_final.pth")
-            print(f"💾 Model saved to {self.save_path}DiT_state_{model_name}_final.pth")
+            self.save_model(f"{self.save_path}DiT_w_stats_state_{model_name}_final.pth")
+            print(f"💾 Model saved to {self.save_path}DiT_w_stats_state_{model_name}_final.pth")
 
     def save_model(self, path: str):
 
@@ -567,6 +563,8 @@ class DiffusionPolicyTrainer:
         # create directory if it doesn't exist
         if dir_name and not os.path.exists(dir_name):
             os.makedirs(dir_name, exist_ok=True)
+
+        train_stats = self.train_ds
 
         torch.save(
             {
@@ -578,6 +576,16 @@ class DiffusionPolicyTrainer:
                     "obs_horizon": self.obs_horizon,
                     "num_diffusion_steps": self.num_diffusion_steps,
                 },
+                "stats": {
+                    "img_mean": train_stats.img_ext_mean,
+                    "img_std": train_stats.img_ext_std,
+                    "wimg_mean": train_stats.img_wst_std,
+                    "wimg_std": train_stats.img_wst_std,
+                    "s_mean": train_stats.obs_mean,
+                    "s_std": train_stats.obs_std,
+                    "a_mean": train_stats.action_mean,
+                    "a_std": train_stats.action_std,
+                }
             },
             path,
         )
@@ -599,13 +607,13 @@ def main():
         required=True,
         help="Path to YAML config file",
     )
+    parser.add_argument("--scheduler", type=str, choices=["squaredcos_cap_v2","linear","scaled_linear"])
 
     cli_args = parser.parse_args()
 
     # Load YAML config
     with open(cli_args.config, "r") as f:
         args = yaml.safe_load(f)
-    print("Initializing policy")
     trainer = DiffusionPolicyTrainer(
             task_name=args["task_name"] ,
             data_dir=args["data_dir"],
@@ -613,7 +621,8 @@ def main():
             obs_horizon=args["obs_horizon"],
             num_diffusion_steps=args["num_diffusion_steps"],
             image_type=args["image_type"],
-            eta=args["eta"]
+            eta=args["eta"],
+            schedule_type=cli_args.scheduler
         )
 
 
@@ -630,7 +639,6 @@ def main():
         save_dir = os.path.dirname(args["save_model_name"])
         if save_dir and not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
-        print("About to train")
         losses = trainer.train(
             num_epochs=args["epochs"],
             batch_size=args["batch_size"],
@@ -841,7 +849,7 @@ def main():
             #
             # YOUR CODE HERE
             # https://huggingface.co/docs/diffusers/v0.26.2/en/api/schedulers/ddpm#diffusers.DDPMScheduler.add_noise
-            noise_scheduler.add_noise(action.unsqueeze(0), noise.unsqueeze(0), timesteps)
+            noisy = trainer.noise_scheduler.add_noise(act.unsqueeze(0), noise.unsqueeze(0), t_batch)
 
             
             noisy_actions.append(noisy[0].detach().cpu())
