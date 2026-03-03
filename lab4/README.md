@@ -293,22 +293,44 @@ You can slice this list ```episode_files = _list_episode_files(data_dir)``` in `
 Include answers in README:
 
 1. How does the noise schedule affect learning stability?
+
 *Answer*: For each of the noise schedulers, the validation loss decreases over time, indicating that learning is stable.
+
 3. Why might cosine schedules outperform linear ones?
+
 *Answer*: A cosine scheduler will reduce the amount of noise over time in a smoother way than a linear scheduler.
+
 5. Why does increasing denoising steps not always improve performance?
+
 *Answer*: In general, for us, increasing the number of denoising steps reduced the validation loss. However, I can imagine that if the aggregate amount of noise introduced to the image is not large, then a large number of denoising steps may be unnecessary.
+
 7. Why is diffusion more stable than autoregressive action models?
-*Answer*: 
+   
+*Answer*: Diffusion is more stable because it has a Markov assumption, while an autoregressive action model can be dependent on several previous timesteps.
+
 9. How does trajectory length affect diffusion difficulty?
-*Answer*: 
-10. Why does sampling produce diverse rollouts?
+
+*Answer*: As the length of the trajectory increases, it becomes more difficult for diffusion to noise/denoise as there are more states/actions to noise/denoise.
+
+11. Why does sampling produce diverse rollouts?
+    
 *Answer*: Sampling produces diverse rollouts because, for each diffusion step, we are sampling from a distribution to extract the level of noise that we want to remove from the previous noisy trajectory.
-12. What failure modes did you observe on the robot?
-13. Why is safety critical when deploying stochastic policies?
-14. How does diffusion compare to behavior cloning for this task?
+
+13. What failure modes did you observe on the robot?
+
+*Answer*: The robot was close to succeeding. It seems like the robot arm begins to extend its end-effector toward the red block. However, the gripper either closes too early or the gripper does not reach the block. In some cases, we believe it could be because the robot was in a ood state. 
+
+15. Why is safety critical when deploying stochastic policies?
+
+*Answer*: When deploying stochastic policies, we need to ensure that all of the possible denoised rollouts from a given noised trajectory meet the safety requirement. In contrast, for a deterministic policy, we simply need to ensure a single rollout is safe. 
+
+17. How does diffusion compare to behavior cloning for this task?
+
 *Answer*: Diffusion performs much better than behavior cloning for this task. In this case, the robot arm is able to move towards the red block, but fails to pick up the block. For behavior cloning, the robot arm was unable to even begin a trajectory towards the block. This is because behavior cloning struggles in learning multimodal behavior, unlike a diffusion policy, which can exhibit multimodal behavior. However, behavior cloning is much faster to train than diffusion, especially as the number of diffusion steps increases. Both diffusion and behavior cloning suffer from action collapse in ood states.
-16. What tradeoffs exist between speed and sample quality?
+
+19. What tradeoffs exist between speed and sample quality?
+
+
 
 ---
 
