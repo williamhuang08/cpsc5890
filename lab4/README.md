@@ -70,8 +70,9 @@ Answer in your writeup:
    - Speed of corruption?
    - Smoothness of corruption?
    - Stability?
-
+   
 *Answer*: We changed the number of diffusion steps (50, 100, 200). Fewer diffusion steps result in faster corruption but also lead to corruption that is not as smooth. The stabiltiy of training was very similar.
+
 ---
 
 ## Deliverable — Forward Process
