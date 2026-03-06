@@ -1,0 +1,22 @@
+name: lab5
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch
+  - torchvision
+  - pytorch-cuda=12.1
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - gymnasium
+  - mujoco
+  - pip
+  - pip:
+      - stable-baselines3
+      - tensorboard
+      - tqdm
+      - imageio
